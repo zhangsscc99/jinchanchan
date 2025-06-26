@@ -38,7 +38,11 @@ import {
   CheckboxGroup,
   Row,
   Col,
-  Icon
+  Icon,
+  Collapse,
+  CollapseItem,
+  Radio,
+  RadioGroup
 } from 'vant'
 
 // 引入Vant样式
@@ -84,5 +88,9 @@ app.use(CheckboxGroup)
 app.use(Row)
 app.use(Col)
 app.use(Icon)
+app.use(Collapse)
+app.use(CollapseItem)
+app.use(Radio)
+app.use(RadioGroup)
 
 app.use(store).use(router).mount('#app') 

@@ -122,6 +122,18 @@
                         {{ hex }}
                       </van-tag>
                     </div>
+                    <div v-if="record.artifacts && record.artifacts.length > 0" class="artifacts-used">
+                      <span class="label">神器: </span>
+                      <van-tag 
+                        v-for="artifact in record.artifacts" 
+                        :key="artifact"
+                        size="mini"
+                        plain
+                        type="warning"
+                      >
+                        {{ artifact }}
+                      </van-tag>
+                    </div>
                     <div v-if="record.notes" class="notes">
                       <span class="label">备注: </span>
                       <span>{{ record.notes }}</span>
@@ -333,6 +345,13 @@ export default {
 }
 
 .hexes-used, .notes {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.artifacts-used {
   display: flex;
   align-items: center;
   flex-wrap: wrap;

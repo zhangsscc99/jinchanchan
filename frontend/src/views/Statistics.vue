@@ -63,6 +63,37 @@
                       :show-pivot="false"
                     />
                   </div>
+                  <!-- 阵容对局记录 -->
+                  <van-collapse v-model="activeCollapses">
+                    <van-collapse-item :title="`查看${stat.games}场对局详情`" :name="`comp-${compositionId}`">
+                      <div class="game-records">
+                        <div 
+                          v-for="record in getCompositionRecords(compositionId)" 
+                          :key="record.id"
+                          class="mini-record"
+                        >
+                          <div class="record-info">
+                            <span class="record-result">第{{ record.rank }}名</span>
+                            <van-tag 
+                              :type="record.result === 'win' ? 'success' : 'danger'"
+                              size="mini"
+                            >
+                              {{ record.result === 'win' ? '胜利' : '失败' }}
+                            </van-tag>
+                            <span class="record-time">{{ formatDate(record.timestamp) }}</span>
+                          </div>
+                          <div v-if="record.hexes && record.hexes.length > 0" class="record-hexes">
+                            <span class="mini-label">海克斯: </span>
+                            <span class="hex-list">{{ record.hexes.join(', ') }}</span>
+                          </div>
+                          <div v-if="record.artifacts && record.artifacts.length > 0" class="record-artifacts">
+                            <span class="mini-label">神器: </span>
+                            <span class="artifact-list">{{ record.artifacts.join(', ') }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </van-collapse-item>
+                  </van-collapse>
                 </template>
               </van-card>
             </div>
@@ -88,11 +119,24 @@
                     <span>排序方式</span>
                   </template>
                   <template #value>
-                    <van-switch 
-                      v-model="sortByWinRate"
-                      active-text="按胜率"
-                      inactive-text="按使用次数"
-                    />
+                    <div class="sort-buttons">
+                      <van-button
+                        size="small"
+                        :type="hexSortType === 'winRate' ? 'primary' : 'default'"
+                        @click="hexSortType = 'winRate'"
+                        class="sort-btn"
+                      >
+                        按胜率
+                      </van-button>
+                      <van-button
+                        size="small"
+                        :type="hexSortType === 'usage' ? 'primary' : 'default'"
+                        @click="hexSortType = 'usage'"
+                        class="sort-btn"
+                      >
+                        按使用次数
+                      </van-button>
+                    </div>
                   </template>
                 </van-cell>
               </van-cell-group>
@@ -125,6 +169,129 @@
                       :show-pivot="false"
                     />
                   </div>
+                  <!-- 海克斯对局记录 -->
+                  <van-collapse v-model="activeCollapses">
+                    <van-collapse-item :title="`查看${hex.games}场对局详情`" :name="`hex-${hex.name}`">
+                      <div class="game-records">
+                        <div 
+                          v-for="record in getHexRecords(hex.name)" 
+                          :key="record.id"
+                          class="mini-record"
+                        >
+                          <div class="record-info">
+                            <span class="record-composition">{{ record.compositionName }}</span>
+                            <span class="record-result">第{{ record.rank }}名</span>
+                            <van-tag 
+                              :type="record.result === 'win' ? 'success' : 'danger'"
+                              size="mini"
+                            >
+                              {{ record.result === 'win' ? '胜利' : '失败' }}
+                            </van-tag>
+                            <span class="record-time">{{ formatDate(record.timestamp) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </van-collapse-item>
+                  </van-collapse>
+                </template>
+              </van-card>
+            </div>
+          </div>
+        </div>
+      </van-tab>
+
+      <!-- 神器统计 -->
+      <van-tab title="神器统计" name="artifacts">
+        <div class="stats-content">
+          <div v-if="Object.keys(artifactStats).length === 0" class="empty-state">
+            <van-empty description="暂无神器数据">
+              <van-button round type="primary" @click="goToAddGame">
+                添加对局记录
+              </van-button>
+            </van-empty>
+          </div>
+          <div v-else>
+            <div class="hex-stats-header">
+              <van-cell-group>
+                <van-cell>
+                  <template #title>
+                    <span>排序方式</span>
+                  </template>
+                  <template #value>
+                    <div class="sort-buttons">
+                      <van-button
+                        size="small"
+                        :type="artifactSortType === 'winRate' ? 'primary' : 'default'"
+                        @click="artifactSortType = 'winRate'"
+                        class="sort-btn"
+                      >
+                        按胜率
+                      </van-button>
+                      <van-button
+                        size="small"
+                        :type="artifactSortType === 'usage' ? 'primary' : 'default'"
+                        @click="artifactSortType = 'usage'"
+                        class="sort-btn"
+                      >
+                        按使用次数
+                      </van-button>
+                    </div>
+                  </template>
+                </van-cell>
+              </van-cell-group>
+            </div>
+            
+            <div 
+              v-for="artifact in sortedArtifactStats" 
+              :key="artifact.name"
+              class="stat-card"
+            >
+              <van-card>
+                <template #title>
+                  <div class="hex-name">
+                    {{ artifact.name }}
+                    <van-tag 
+                      :type="getWinRateType(artifact.winRate)" 
+                      size="mini"
+                    >
+                      {{ artifact.winRate }}%
+                    </van-tag>
+                  </div>
+                </template>
+                <template #desc>
+                  <div class="stat-details">
+                    <span>使用: {{ artifact.games }}次</span>
+                    <span>胜利: {{ artifact.wins }}次</span>
+                    <van-progress 
+                      :percentage="parseFloat(artifact.winRate)" 
+                      :color="getProgressColor(artifact.winRate)"
+                      :show-pivot="false"
+                    />
+                  </div>
+                  <!-- 神器对局记录 -->
+                  <van-collapse v-model="activeCollapses">
+                    <van-collapse-item :title="`查看${artifact.games}场对局详情`" :name="`artifact-${artifact.name}`">
+                      <div class="game-records">
+                        <div 
+                          v-for="record in getArtifactRecords(artifact.name)" 
+                          :key="record.id"
+                          class="mini-record"
+                        >
+                          <div class="record-info">
+                            <span class="record-composition">{{ record.compositionName }}</span>
+                            <span class="record-result">第{{ record.rank }}名</span>
+                            <van-tag 
+                              :type="record.result === 'win' ? 'success' : 'danger'"
+                              size="mini"
+                            >
+                              {{ record.result === 'win' ? '胜利' : '失败' }}
+                            </van-tag>
+                            <span class="record-time">{{ formatDate(record.timestamp) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </van-collapse-item>
+                  </van-collapse>
                 </template>
               </van-card>
             </div>
@@ -173,6 +340,18 @@
                         {{ hex }}
                       </van-tag>
                     </div>
+                    <div v-if="record.artifacts && record.artifacts.length > 0" class="artifacts-used">
+                      <span class="label">神器: </span>
+                      <van-tag 
+                        v-for="artifact in record.artifacts" 
+                        :key="artifact"
+                        size="mini"
+                        plain
+                        type="warning"
+                      >
+                        {{ artifact }}
+                      </van-tag>
+                    </div>
                     <div v-if="record.notes" class="notes">
                       <span class="label">备注: </span>
                       <span>{{ record.notes }}</span>
@@ -202,17 +381,40 @@ export default {
     const router = useRouter()
     const store = useStore()
     const activeTab = ref('compositions')
-    const sortByWinRate = ref(true)
+    const activeCollapses = ref([])
+    const hexSortType = ref('winRate')
+    const artifactSortType = ref('winRate')
 
     const statistics = computed(() => store.state.statistics)
     const compositionStats = computed(() => store.state.statistics.compositionStats)
     const hexStats = computed(() => store.state.statistics.hexStats)
+    const artifactStats = computed(() => store.state.statistics.artifactStats)
     const gameRecords = computed(() => [...store.state.gameRecords].reverse())
     const compositions = computed(() => store.state.compositions)
 
     const getCompositionName = (compositionId) => {
       const comp = compositions.value.find(c => c.id === parseInt(compositionId))
       return comp ? comp.name : '未知阵容'
+    }
+
+    const getCompositionRecords = (compositionId) => {
+      const id = parseInt(compositionId)
+      return gameRecords.value.filter(record => 
+        record.compositionId === id || 
+        (compositionId === 'custom' && !record.compositionId)
+      ).slice(0, 10) // 限制显示最近10场
+    }
+
+    const getHexRecords = (hexName) => {
+      return gameRecords.value.filter(record => 
+        record.hexes && record.hexes.includes(hexName)
+      ).slice(0, 10) // 限制显示最近10场
+    }
+
+    const getArtifactRecords = (artifactName) => {
+      return gameRecords.value.filter(record => 
+        record.artifacts && record.artifacts.includes(artifactName)
+      ).slice(0, 10) // 限制显示最近10场
     }
 
     const getWinRateType = (winRate) => {
@@ -235,10 +437,23 @@ export default {
         ...stat
       }))
       
-      if (sortByWinRate.value) {
+      if (hexSortType.value === 'winRate') {
         return hexList.sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate))
       } else {
         return hexList.sort((a, b) => b.games - a.games)
+      }
+    })
+
+    const sortedArtifactStats = computed(() => {
+      const artifactList = Object.entries(artifactStats.value).map(([name, stat]) => ({
+        name,
+        ...stat
+      }))
+      
+      if (artifactSortType.value === 'winRate') {
+        return artifactList.sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate))
+      } else {
+        return artifactList.sort((a, b) => b.games - a.games)
       }
     })
 
@@ -253,13 +468,20 @@ export default {
 
     return {
       activeTab,
-      sortByWinRate,
+      activeCollapses,
+      hexSortType,
+      artifactSortType,
       statistics,
       compositionStats,
       hexStats,
+      artifactStats,
       gameRecords,
       sortedHexStats,
+      sortedArtifactStats,
       getCompositionName,
+      getCompositionRecords,
+      getHexRecords,
+      getArtifactRecords,
       getWinRateType,
       getProgressColor,
       formatDate,
@@ -350,6 +572,13 @@ export default {
   gap: 4px;
 }
 
+.artifacts-used {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .label {
   font-size: 12px;
   color: #666;
@@ -373,5 +602,103 @@ export default {
 
 .van-progress {
   margin-top: 4px;
+}
+
+.game-records {
+  margin-top: 12px;
+}
+
+.mini-record {
+  background: #f7f8fa;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-left: 3px solid #1989fa;
+}
+
+.record-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.record-composition {
+  font-size: 12px;
+  font-weight: 500;
+  color: #323233;
+  flex: 1;
+}
+
+.record-result {
+  font-size: 12px;
+  color: #646566;
+}
+
+.record-time {
+  font-size: 10px;
+  color: #969799;
+  margin-left: auto;
+}
+
+.record-hexes,
+.record-artifacts {
+  font-size: 11px;
+  color: #646566;
+  margin-top: 4px;
+}
+
+.mini-label {
+  font-weight: 500;
+  color: #323233;
+}
+
+.hex-list,
+.artifact-list {
+  color: #1989fa;
+}
+
+.sort-buttons {
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e5e5e5;
+  background: #fff;
+}
+
+.sort-btn {
+  flex: 1;
+  border: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  font-size: 12px;
+  position: relative;
+}
+
+.sort-btn:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  background: #e5e5e5;
+}
+
+.sort-btn.van-button--primary:not(:last-child)::after {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.hex-stats-header .van-cell {
+  padding: 12px 16px;
+}
+
+.hex-stats-header .van-cell__title {
+  font-weight: 500;
+  color: #323233;
+}
+
+.hex-stats-header .van-cell__value {
+  flex: none;
 }
 </style> 

@@ -165,10 +165,10 @@ export default createStore({
       },
       {
         id: 13,
-        name: '万脑小丑鳄',
+        name: '万瞄小丑鳄',
         tier: 'A+',
         level: '4/5级追三星，限定强化',
-        description: '万脑小丑鳄核心阵容',
+        description: '万瞄小丑鳄核心阵容',
         champions: ['萨科', '雷克顿', '卡特琳娜', '瑞兹', '泽拉斯'],
         traits: ['魅惑', '圣源', '未来战士', '决斗大师'],
         equipment: ['帽子', '鬼书', '青龙刀'],
@@ -232,7 +232,8 @@ export default createStore({
       totalWins: 0,
       winRate: 0,
       compositionStats: {},
-      hexStats: {}
+      hexStats: {},
+      artifactStats: {}
     }
   },
   getters: {
@@ -288,18 +289,38 @@ export default createStore({
       // 海克斯统计
       const hexStats = {}
       records.forEach(record => {
-        record.hexes.forEach(hex => {
-          if (!hexStats[hex]) {
-            hexStats[hex] = { games: 0, wins: 0, winRate: 0 }
-          }
-          hexStats[hex].games++
-          if (record.result === 'win') {
-            hexStats[hex].wins++
-          }
-          hexStats[hex].winRate = (hexStats[hex].wins / hexStats[hex].games * 100).toFixed(1)
-        })
+        if (record.hexes && record.hexes.length > 0) {
+          record.hexes.forEach(hex => {
+            if (!hexStats[hex]) {
+              hexStats[hex] = { games: 0, wins: 0, winRate: 0 }
+            }
+            hexStats[hex].games++
+            if (record.result === 'win') {
+              hexStats[hex].wins++
+            }
+            hexStats[hex].winRate = (hexStats[hex].wins / hexStats[hex].games * 100).toFixed(1)
+          })
+        }
       })
       state.statistics.hexStats = hexStats
+
+      // 神器统计
+      const artifactStats = {}
+      records.forEach(record => {
+        if (record.artifacts && record.artifacts.length > 0) {
+          record.artifacts.forEach(artifact => {
+            if (!artifactStats[artifact]) {
+              artifactStats[artifact] = { games: 0, wins: 0, winRate: 0 }
+            }
+            artifactStats[artifact].games++
+            if (record.result === 'win') {
+              artifactStats[artifact].wins++
+            }
+            artifactStats[artifact].winRate = (artifactStats[artifact].wins / artifactStats[artifact].games * 100).toFixed(1)
+          })
+        }
+      })
+      state.statistics.artifactStats = artifactStats
     }
   },
   actions: {

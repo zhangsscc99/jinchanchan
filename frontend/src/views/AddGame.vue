@@ -14,20 +14,9 @@
         <van-field
           v-model="gameForm.compositionName"
           label="使用阵容"
-          placeholder="选择阵容"
-          readonly
+          placeholder="选择阵容或自定义输入"
           is-link
           @click="showCompositionPicker = true"
-          required
-        />
-        
-        <van-field
-          v-model="gameForm.hexesText"
-          label="海克斯强化"
-          placeholder="选择海克斯强化"
-          readonly
-          is-link
-          @click="showHexPicker = true"
           required
         />
         
@@ -38,16 +27,36 @@
           placeholder="输入排名 (1-8)"
           required
           :rules="[{ pattern: /^[1-8]$/, message: '请输入1-8的排名' }]"
+          @input="updateResult"
+        >
+          <template #right-icon>
+            <van-tag 
+              v-if="gameForm.rank && /^[1-8]$/.test(gameForm.rank)"
+              :type="parseInt(gameForm.rank) <= 4 ? 'success' : 'danger'"
+              size="mini"
+            >
+              {{ parseInt(gameForm.rank) <= 4 ? '胜利' : '失败' }}
+            </van-tag>
+          </template>
+        </van-field>
+        
+        <van-field
+          v-model="gameForm.hexesText"
+          label="海克斯强化"
+          type="textarea"
+          placeholder="输入获得的海克斯强化，用逗号分隔"
+          maxlength="100"
+          show-word-limit
+          required
         />
         
         <van-field
-          v-model="gameForm.result"
-          label="对局结果"
-          placeholder="选择结果"
-          readonly
-          is-link
-          @click="showResultPicker = true"
-          required
+          v-model="gameForm.artifactText"
+          label="神器"
+          type="textarea"
+          placeholder="输入获得的神器，用逗号分隔（选填）"
+          maxlength="100"
+          show-word-limit
         />
         
         <van-field
@@ -65,16 +74,37 @@
     <van-popup 
       v-model:show="showCompositionPicker" 
       position="bottom"
-      :style="{ height: '60%' }"
+      :style="{ height: '70%' }"
     >
       <van-nav-bar
         title="选择阵容"
         left-text="取消"
-        right-text="确认"
         @click-left="showCompositionPicker = false"
-        @click-right="confirmComposition"
       />
       <div class="picker-content">
+        <!-- 自定义阵容输入 -->
+        <div class="custom-composition">
+          <van-field
+            v-model="customCompositionName"
+            label="自定义阵容"
+            placeholder="输入自定义阵容名称"
+            clearable
+          >
+            <template #button>
+              <van-button 
+                size="small" 
+                type="primary"
+                @click="selectCustomComposition"
+                :disabled="!customCompositionName || !customCompositionName.trim()"
+              >
+                使用
+              </van-button>
+            </template>
+          </van-field>
+        </div>
+        
+        <van-divider>或选择推荐阵容</van-divider>
+        
         <van-tabs v-model:active="compositionTab">
           <van-tab title="S级" name="S">
             <div class="composition-options">
@@ -82,7 +112,6 @@
                 v-for="comp in getCompositionsByTier('S')"
                 :key="comp.id"
                 class="composition-option"
-                :class="{ active: selectedComposition?.id === comp.id }"
                 @click="selectComposition(comp)"
               >
                 <div class="option-name">{{ comp.name }}</div>
@@ -96,7 +125,6 @@
                 v-for="comp in getCompositionsByTier('S-')"
                 :key="comp.id"
                 class="composition-option"
-                :class="{ active: selectedComposition?.id === comp.id }"
                 @click="selectComposition(comp)"
               >
                 <div class="option-name">{{ comp.name }}</div>
@@ -110,7 +138,6 @@
                 v-for="comp in getCompositionsByTier('A+')"
                 :key="comp.id"
                 class="composition-option"
-                :class="{ active: selectedComposition?.id === comp.id }"
                 @click="selectComposition(comp)"
               >
                 <div class="option-name">{{ comp.name }}</div>
@@ -121,48 +148,6 @@
         </van-tabs>
       </div>
     </van-popup>
-
-    <!-- 海克斯选择器 -->
-    <van-popup 
-      v-model:show="showHexPicker" 
-      position="bottom"
-      :style="{ height: '70%' }"
-    >
-      <van-nav-bar
-        title="选择海克斯强化"
-        left-text="取消"
-        right-text="确认"
-        @click-left="showHexPicker = false"
-        @click-right="confirmHexes"
-      />
-      <div class="picker-content">
-        <div class="hex-options">
-          <van-checkbox-group v-model="selectedHexes">
-            <van-cell-group>
-              <van-cell
-                v-for="hex in hexes"
-                :key="hex"
-                clickable
-                @click="toggleHex(hex)"
-              >
-                <template #title>
-                  <van-checkbox :name="hex" />
-                  <span class="hex-name">{{ hex }}</span>
-                </template>
-              </van-cell>
-            </van-cell-group>
-          </van-checkbox-group>
-        </div>
-      </div>
-    </van-popup>
-
-    <!-- 结果选择器 -->
-    <van-action-sheet
-      v-model:show="showResultPicker"
-      :actions="resultOptions"
-      @select="onSelectResult"
-      cancel-text="取消"
-    />
   </div>
 </template>
 
@@ -170,7 +155,7 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import { Toast } from 'vant'
+import { showToast } from 'vant'
 
 export default {
   name: 'AddGame',
@@ -179,91 +164,67 @@ export default {
     const store = useStore()
 
     const showCompositionPicker = ref(false)
-    const showHexPicker = ref(false)
-    const showResultPicker = ref(false)
     const compositionTab = ref('S')
-    
-    const selectedComposition = ref(null)
-    const selectedHexes = ref([])
+    const customCompositionName = ref('')
 
     const gameForm = reactive({
       compositionName: '',
       compositionId: null,
       hexesText: '',
       hexes: [],
+      artifactText: '',
+      artifacts: [],
       rank: '',
       result: '',
+      resultValue: '',
       notes: ''
     })
 
     const compositions = computed(() => store.state.compositions)
-    const hexes = computed(() => store.state.hexes)
 
     const getCompositionsByTier = (tier) => {
       return store.getters.getCompositionsByTier(tier)
     }
 
-    const resultOptions = [
-      { name: '胜利 (前4名)', value: 'win' },
-      { name: '失败 (后4名)', value: 'lose' }
-    ]
-
     const selectComposition = (composition) => {
-      selectedComposition.value = composition
+      gameForm.compositionName = composition.name
+      gameForm.compositionId = composition.id
+      showCompositionPicker.value = false
     }
 
-    const confirmComposition = () => {
-      if (selectedComposition.value) {
-        gameForm.compositionName = selectedComposition.value.name
-        gameForm.compositionId = selectedComposition.value.id
+    const selectCustomComposition = () => {
+      if (customCompositionName.value && customCompositionName.value.trim()) {
+        gameForm.compositionName = customCompositionName.value.trim()
+        gameForm.compositionId = null // 自定义阵容没有ID
         showCompositionPicker.value = false
+        customCompositionName.value = ''
       }
     }
 
-    const toggleHex = (hex) => {
-      const index = selectedHexes.value.indexOf(hex)
-      if (index > -1) {
-        selectedHexes.value.splice(index, 1)
-      } else {
-        if (selectedHexes.value.length < 3) {
-          selectedHexes.value.push(hex)
+    const updateResult = () => {
+      if (gameForm.rank && /^[1-8]$/.test(gameForm.rank)) {
+        const rank = parseInt(gameForm.rank)
+        if (rank <= 4) {
+          gameForm.result = '胜利 (前4名)'
+          gameForm.resultValue = 'win'
         } else {
-          Toast('最多选择3个海克斯强化')
+          gameForm.result = '失败 (后4名)'
+          gameForm.resultValue = 'lose'
         }
       }
     }
 
-    const confirmHexes = () => {
-      if (selectedHexes.value.length === 0) {
-        Toast('请至少选择一个海克斯强化')
-        return
-      }
-      gameForm.hexes = [...selectedHexes.value]
-      gameForm.hexesText = selectedHexes.value.join(', ')
-      showHexPicker.value = false
-    }
-
-    const onSelectResult = (action) => {
-      gameForm.result = action.name
-      gameForm.resultValue = action.value
-      showResultPicker.value = false
-    }
-
     const validateForm = () => {
-      if (!gameForm.compositionId) {
-        Toast('请选择使用的阵容')
-        return false
-      }
-      if (gameForm.hexes.length === 0) {
-        Toast('请选择海克斯强化')
+      if (!gameForm.compositionName || !gameForm.compositionName.trim()) {
+        showToast('请选择或输入使用的阵容')
         return false
       }
       if (!gameForm.rank || !/^[1-8]$/.test(gameForm.rank)) {
-        Toast('请输入正确的排名 (1-8)')
+        showToast('请输入正确的排名 (1-8)')
         return false
       }
-      if (!gameForm.resultValue) {
-        Toast('请选择对局结果')
+      if (!gameForm.hexesText || !gameForm.hexesText.trim()) {
+        showToast('请输入海克斯强化')
         return false
       }
       return true
@@ -272,17 +233,29 @@ export default {
     const saveGame = () => {
       if (!validateForm()) return
 
+      // 更新结果
+      updateResult()
+      
+      // 处理海克斯文本，转换为数组
+      const hexes = (gameForm.hexesText || '').split(/[,，]/).map(hex => hex.trim()).filter(hex => hex)
+      
+      // 处理神器文本，转换为数组
+      const artifacts = (gameForm.artifactText || '')
+        ? (gameForm.artifactText || '').split(/[,，]/).map(artifact => artifact.trim()).filter(artifact => artifact)
+        : []
+
       const gameRecord = {
         compositionId: gameForm.compositionId,
-        compositionName: gameForm.compositionName,
-        hexes: gameForm.hexes,
+        compositionName: gameForm.compositionName || '',
+        hexes,
+        artifacts,
         rank: parseInt(gameForm.rank),
         result: gameForm.resultValue,
-        notes: gameForm.notes
+        notes: gameForm.notes || ''
       }
 
       store.dispatch('addGameRecord', gameRecord)
-      Toast.success('对局记录保存成功')
+      showToast({ message: '对局记录保存成功', type: 'success' })
       router.push('/')
     }
 
@@ -292,21 +265,14 @@ export default {
 
     return {
       showCompositionPicker,
-      showHexPicker,
-      showResultPicker,
       compositionTab,
-      selectedComposition,
-      selectedHexes,
+      customCompositionName,
       gameForm,
       compositions,
-      hexes,
-      resultOptions,
       getCompositionsByTier,
       selectComposition,
-      confirmComposition,
-      toggleHex,
-      confirmHexes,
-      onSelectResult,
+      selectCustomComposition,
+      updateResult,
       saveGame,
       goBack
     }
@@ -328,6 +294,11 @@ export default {
   overflow-y: auto;
 }
 
+.custom-composition {
+  padding: 16px;
+  background: #f7f8fa;
+}
+
 .composition-options {
   padding: 16px;
 }
@@ -337,12 +308,10 @@ export default {
   background: white;
   border-radius: 8px;
   margin-bottom: 8px;
-  border: 2px solid transparent;
   transition: all 0.2s ease;
 }
 
-.composition-option.active {
-  border-color: #1989fa;
+.composition-option:active {
   background: #f0f9ff;
 }
 
@@ -355,21 +324,5 @@ export default {
 .option-desc {
   font-size: 12px;
   color: #666;
-}
-
-.hex-options {
-  padding: 0 16px;
-}
-
-.hex-name {
-  margin-left: 8px;
-}
-
-.van-cell {
-  padding: 12px 16px;
-}
-
-.van-checkbox {
-  margin-right: 0;
 }
 </style> 

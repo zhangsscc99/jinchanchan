@@ -58,16 +58,6 @@
           <van-icon name="chart-trending-o" />
         </template>
       </van-cell>
-      <van-cell title="导出数据" is-link @click="exportData">
-        <template #icon>
-          <van-icon name="down" />
-        </template>
-      </van-cell>
-      <van-cell title="清空数据" is-link @click="showClearDialog = true">
-        <template #icon>
-          <van-icon name="delete-o" />
-        </template>
-      </van-cell>
     </van-cell-group>
 
     <van-cell-group>
@@ -100,17 +90,6 @@
         </div>
       </div>
     </van-dialog>
-
-    <!-- 清空数据确认弹窗 -->
-    <van-dialog
-      v-model:show="showClearDialog"
-      title="清空数据"
-      message="确定要清空所有对局记录吗？此操作不可恢复。"
-      show-cancel-button
-      confirm-button-text="确认清空"
-      confirm-button-color="#ee0a24"
-      @confirm="clearAllData"
-    />
 
     <!-- 设置弹窗 -->
     <van-dialog
@@ -167,7 +146,6 @@
 <script>
 import { ref, computed } from 'vue'
 import { useStore } from 'vuex'
-import { Toast } from 'vant'
 
 export default {
   name: 'Profile',
@@ -175,7 +153,6 @@ export default {
     const store = useStore()
     
     const showDataDialog = ref(false)
-    const showClearDialog = ref(false)
     const showSettingsDialog = ref(false)
     const showAboutDialog = ref(false)
     
@@ -209,48 +186,8 @@ export default {
       }
     }
 
-    const exportData = () => {
-      try {
-        const data = {
-          gameRecords: store.state.gameRecords,
-          statistics: store.state.statistics,
-          exportTime: new Date().toISOString()
-        }
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], {
-          type: 'application/json'
-        })
-        
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `jinchanchan-data-${new Date().toISOString().split('T')[0]}.json`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-        
-        Toast.success('数据导出成功')
-      } catch (error) {
-        Toast.fail('数据导出失败')
-      }
-    }
-
-    const clearAllData = () => {
-      try {
-        // 这里应该调用store的清空数据方法
-        // 暂时用localStorage来模拟
-        localStorage.removeItem('jinchanchan-data')
-        location.reload()
-        Toast.success('数据清空成功')
-      } catch (error) {
-        Toast.fail('数据清空失败')
-      }
-    }
-
     return {
       showDataDialog,
-      showClearDialog,
       showSettingsDialog,
       showAboutDialog,
       darkMode,
@@ -260,9 +197,7 @@ export default {
       compositions,
       gameRecords,
       hexStats,
-      getRankLevel,
-      exportData,
-      clearAllData
+      getRankLevel
     }
   }
 }
